@@ -1,4 +1,4 @@
-include "sshell.h"
+#include "sshell.h"
 /**
  *type_exit - get the type of exit
  * @p: input user, array of pointers
