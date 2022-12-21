@@ -1,75 +1,85 @@
-#include "sshell.h"
+#include "shell.h"
 
 /**
- * semicolon - search if in the input there is a ";" or a ";;"
- * @line: complete input of user
- * @loop: number of actual loop
- * @argv: input argument
- * Return: 1 if find ";" or ";;" or 0 if not
+ *_eputs - prints an input string
+ * @str: the string to be printed
+ *
+ * Return: Nothing
  */
-int semicolon(char *line, int loop, char **argv)
+void _eputs(char *str)
 {
-	int valid = 0, cont = 0;
+	int i = 0;
 
-	while (line[cont] != '\0')
+	if (!str)
+		return;
+	while (str[i] != '\0')
 	{
-		if (line[0] == ';')
-		{
-			valid = 1;
-			write(STDERR_FILENO, argv[0], _strlen(argv[0]));
-			write(STDERR_FILENO, ": ", 2);
-			print_number(loop);
-			write(STDERR_FILENO, ": ", 2);
-			write(STDERR_FILENO, "Syntax error: ", 14);
-			write(STDERR_FILENO, ";", 1);
-			write(STDERR_FILENO, " unexpected\n", 12);
-			break;
-		}
-		if (line[cont] == ';' && line[cont + 1] == ';')
-		{
-			valid = 1;
-			write(STDERR_FILENO, argv[0], _strlen(argv[0]));
-			write(STDERR_FILENO, ": ", 2);
-			print_number(loop);
-			write(STDERR_FILENO, ": ", 2);
-			write(STDERR_FILENO, "Syntax error: ", 14);
-			write(STDERR_FILENO, ";;", 2);
-			write(STDERR_FILENO, " unexpected\n", 12);
-			break;
-		}
-		cont++;
+		_eputchar(str[i]);
+		i++;
 	}
-	return (valid);
 }
-/**
- *_comments - remove commentaries
- *@line: input of user
- * Return: the new input
- */
-char *_comments(char *line)
-{
-	int a = 0, c = 0, flag = 0;
 
-	while (line[c] != '\0')
-		c++;
-	while (line[a] != '\0')
+/**
+ * _eputchar - writes the character c to stderr
+ * @c: The character to print
+ *
+ * Return: On success 1.
+ * On error, -1 is returned, and errno is set appropriately.
+ */
+int _eputchar(char c)
+{
+	static int i;
+	static char buf[WRITE_BUF_SIZE];
+
+	if (c == BUF_FLUSH || i >= WRITE_BUF_SIZE)
 	{
-		if (line[0] == '#')
-		{
-			flag = 1;
-			break;
-		}
-		if (line[a] == '#' && line[a - 1] == ' ')
-		{
-			flag = 1;
-			break;
-		}
-		a++;
+		write(2, buf, i);
+		i = 0;
 	}
-	if (flag == 1)
+	if (c != BUF_FLUSH)
+		buf[i++] = c;
+	return (1);
+}
+
+/**
+ * _putfd - writes the character c to given fd
+ * @c: The character to print
+ * @fd: The filedescriptor to write to
+ *
+ * Return: On success 1.
+ * On error, -1 is returned, and errno is set appropriately.
+ */
+int _putfd(char c, int fd)
+{
+	static int i;
+	static char buf[WRITE_BUF_SIZE];
+
+	if (c == BUF_FLUSH || i >= WRITE_BUF_SIZE)
 	{
-		for (; a < c; a++)
-			line[a] = 0;
+		write(fd, buf, i);
+		i = 0;
 	}
-	return (line);
+	if (c != BUF_FLUSH)
+		buf[i++] = c;
+	return (1);
+}
+
+/**
+ *_putsfd - prints an input string
+ * @str: the string to be printed
+ * @fd: the filedescriptor to write to
+ *
+ * Return: the number of chars put
+ */
+int _putsfd(char *str, int fd)
+{
+	int i = 0;
+
+	if (!str)
+		return (0);
+	while (*str)
+	{
+		i += _putfd(*str++, fd);
+	}
+	return (i);
 }
