@@ -1,78 +1,140 @@
-#include "sshell.h"
-/**
- * _env - finds if line input is env
- * @p: input of user, array of pointers
- * @myenv: copy of environmental variables
- * Return: -1 if fails or 0 if success
- */
-int _env(char **p, char **myenv)
-{
-	char str[4] = "env";
-	int i = 0, j = 0, cont = 0;
+#include "shell.h"
 
-	while (p[0][j] != '\0')
-		j++;
-	if (j == 3)
-	{
-		while (i < 3)
-		{
-			if (p[0][i] == str[i])
-				cont++;
-			i++;
-		}
-		if (cont == 3)
-		{
-			_isenv(myenv);
-			return (0);
-		}
-	}
-	return (-1);
-}
 /**
- * create_env - create a copy of the environmental variables
- * @envp: environment variables
- * Return: array of pointers that stores each element of environ variables
+ * _erratoi - converts a string to an integer
+ * @s: the string to be converted
+ * Return: 0 if no numbers in string, converted number otherwise
+ *       -1 on error
  */
-char **create_env(char *envp[])
+int _erratoi(char *s)
 {
-	int i, j = 0, c = 0;
-	static char **myenv;
+	int i = 0;
+	unsigned long int result = 0;
 
-	for (i = 0; envp[i] != NULL; i++)
-		;
-	myenv = _calloc(i + 1, sizeof(char *));
-	if (!myenv)
-		return (NULL);
-	while (envp[j] != NULL)
+	if (*s == '+')
+		s++;  /* TODO: why does this make main return 255? */
+	for (i = 0;  s[i] != '\0'; i++)
 	{
-		c = 0;
-		while (envp[j][c] != '\0')
-			c++;
-		myenv[j] = _calloc(c + 1, sizeof(char));
-		if (myenv[j] == NULL)
+		if (s[i] >= '0' && s[i] <= '9')
 		{
-			gridfree(myenv, j);
-			return (NULL);
+			result *= 10;
+			result += (s[i] - '0');
+			if (result > INT_MAX)
+				return (-1);
 		}
-		for (i = 0; i < c; i++)
-			myenv[j][i] = envp[j][i];
-		j++;
+		else
+			return (-1);
 	}
-	myenv[j] = NULL;
-	return (myenv);
+	return (result);
 }
+
 /**
- * _isenv - function to print the environment variables
- * environ points to an array of pointers to strings called the "environment"
- * @myenv: icopy of environmental
+ * print_error - prints an error message
+ * @info: the parameter & return info struct
+ * @estr: string containing specified error type
+ * Return: 0 if no numbers in string, converted number otherwise
+ *        -1 on error
  */
-void _isenv(char **myenv)
+void print_error(info_t *info, char *estr)
+{
+	_eputs(info->fname);
+	_eputs(": ");
+	print_d(info->line_count, STDERR_FILENO);
+	_eputs(": ");
+	_eputs(info->argv[0]);
+	_eputs(": ");
+	_eputs(estr);
+}
+
+/**
+ * print_d - function prints a decimal (integer) number (base 10)
+ * @input: the input
+ * @fd: the filedescriptor to write to
+ *
+ * Return: number of characters printed
+ */
+int print_d(int input, int fd)
+{
+	int (*__putchar)(char) = _putchar;
+	int i, count = 0;
+	unsigned int _abs_, current;
+
+	if (fd == STDERR_FILENO)
+		__putchar = _eputchar;
+	if (input < 0)
+	{
+		_abs_ = -input;
+		__putchar('-');
+		count++;
+	}
+	else
+		_abs_ = input;
+	current = _abs_;
+	for (i = 1000000000; i > 1; i /= 10)
+	{
+		if (_abs_ / i)
+		{
+			__putchar('0' + current / i);
+			count++;
+		}
+		current %= i;
+	}
+	__putchar('0' + current);
+	count++;
+
+	return (count);
+}
+
+/**
+ * convert_number - converter function, a clone of itoa
+ * @num: number
+ * @base: base
+ * @flags: argument flags
+ *
+ * Return: string
+ */
+char *convert_number(long int num, int base, int flags)
+{
+	static char *array;
+	static char buffer[50];
+	char sign = 0;
+	char *ptr;
+	unsigned long n = num;
+
+	if (!(flags & CONVERT_UNSIGNED) && num < 0)
+	{
+		n = -num;
+		sign = '-';
+
+	}
+	array = flags & CONVERT_LOWERCASE ? "0123456789abcdef" : "0123456789ABCDEF";
+	ptr = &buffer[49];
+	*ptr = '\0';
+
+	do	{
+		*--ptr = array[n % base];
+		n /= base;
+	} while (n != 0);
+
+	if (sign)
+		*--ptr = sign;
+	return (ptr);
+}
+
+/**
+ * remove_comments - function replaces first instance of '#' with '\0'
+ * @buf: address of the string to modify
+ *
+ * Return: Always 0;
+ */
+void remove_comments(char *buf)
 {
 	int i;
 
-	for (i = 0; myenv[i] != NULL; i++)
-	{
-		write(STDOUT_FILENO, myenv[i], _strlen(myenv[i]));
-		write(STDOUT_FILENO, "\n", 1);
-	}
+	for (i = 0; buf[i] != '\0'; i++)
+		if (buf[i] == '#' && (!i || buf[i - 1] == ' '))
+		{
+			buf[i] = '\0';
+			break;
+		}
 }
