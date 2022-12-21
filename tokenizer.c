@@ -1,85 +1,94 @@
-#include "sshell.h"
+#include "shell.h"
 
 /**
- * _isunsetenv - finds if line input is unsetenv
- * @p: input of user, array of pointers
- * @myenv: copy of environmental variables
- * @loop: loops counter
- * @v: arguments in input
- * @e: number of elements in myenv
- * Return: -1 if fails or 0 if success
+ * **strtow - splits a string into words. Repeat delimiters are ignored
+ * @str: the input string
+ * @d: the delimeter string
+ * Return: a pointer to an array of strings, or NULL on failure
  */
-int _isunsetenv(char **p, char **myenv, int *e, int loop, char *v[])
-{
-	char str[] = "unsetenv";
-	int i = 0, cont = 0, salida = -1;
 
-	i = 0;
-	while (p[0][i] != '\0')
+char **strtow(char *str, char *d)
+{
+	int i, j, k, m, numwords = 0;
+	char **s;
+
+	if (str == NULL || str[0] == 0)
+		return (NULL);
+	if (!d)
+		d = " ";
+	for (i = 0; str[i] != '\0'; i++)
+		if (!is_delim(str[i], d) && (is_delim(str[i + 1], d) || !str[i + 1]))
+			numwords++;
+
+	if (numwords == 0)
+		return (NULL);
+	s = malloc((1 + numwords) * sizeof(char *));
+	if (!s)
+		return (NULL);
+	for (i = 0, j = 0; j < numwords; j++)
 	{
-		if (i < 8)
+		while (is_delim(str[i], d))
+			i++;
+		k = 0;
+		while (!is_delim(str[i + k], d) && str[i + k])
+			k++;
+		s[j] = malloc((k + 1) * sizeof(char));
+		if (!s[j])
 		{
-			if (p[0][i] == str[i])
-				cont++;
+			for (k = 0; k < j; k++)
+				free(s[k]);
+			free(s);
+			return (NULL);
 		}
-		i++;
+		for (m = 0; m < k; m++)
+			s[j][m] = str[i++];
+		s[j][m] = 0;
 	}
-	if (i == 8)
-		cont++;
-	if (cont == 9)
-	{
-		_unsetenv(p, myenv, e, loop, v);
-		salida = 0;
-	}
-	else if (cont == 8)
-	{
-		salida = 0;
-		_put_err(p, loop, 3, v);
-	}
-	return (salida);
+	s[j] = NULL;
+	return (s);
 }
-/**
- * _unsetenv - function to remove an environment variable
- * environ points to an array of pointers to strings called the "environment"
- * @p: input of user, array of pointers
- * @myenv: icopy of environmental
- * @loop: loops counter
- * @v: arguments in input
- * @e: number of elements in myenv
- */
-void _unsetenv(char **p, char **myenv, int *e, int loop, char *v[])
-{
-	int i, lg, j, k = 0, k2 = 0, k3 = 0, cont = 0;
 
-	lg = _strlen(p[1]);
-	for (i = 0; myenv[i] != NULL; i++, cont = 0)
+/**
+ * **strtow2 - splits a string into words
+ * @str: the input string
+ * @d: the delimeter
+ * Return: a pointer to an array of strings, or NULL on failure
+ */
+char **strtow2(char *str, char d)
+{
+	int i, j, k, m, numwords = 0;
+	char **s;
+
+	if (str == NULL || str[0] == 0)
+		return (NULL);
+	for (i = 0; str[i] != '\0'; i++)
+		if ((str[i] != d && str[i + 1] == d) ||
+		    (str[i] != d && !str[i + 1]) || str[i + 1] == d)
+			numwords++;
+	if (numwords == 0)
+		return (NULL);
+	s = malloc((1 + numwords) * sizeof(char *));
+	if (!s)
+		return (NULL);
+	for (i = 0, j = 0; j < numwords; j++)
 	{
-		for (j = 0; p[1][j] != '\0' && j < lg; j++)
+		while (str[i] == d && str[i] != d)
+			i++;
+		k = 0;
+		while (str[i + k] != d && str[i + k] && str[i + k] != d)
+			k++;
+		s[j] = malloc((k + 1) * sizeof(char));
+		if (!s[j])
 		{
-			if (p[1][j] == myenv[i][j])
-				cont++;
+			for (k = 0; k < j; k++)
+				free(s[k]);
+			free(s);
+			return (NULL);
 		}
-		if (cont == lg)
-			break;
+		for (m = 0; m < k; m++)
+			s[j][m] = str[i++];
+		s[j][m] = 0;
 	}
-	if (cont == lg)
-	{
-		for (k = i; myenv[k] != NULL && myenv[k + 1] != NULL; k++)
-		{
-			for (k2 = 0; myenv[k][k2] != '\0'; k2++)
-				myenv[k][k2] = 0;
-			for (k3 = 0; myenv[k + 1][k3] != '\0'; k3++)
-				;
-			if (k2 < k3)
-				myenv[k] = _realloc(myenv[k], k2, k3);
-			for (k2 = 0; myenv[k + 1][k2] != '\0'; k2++)
-				myenv[k][k2] = myenv[k + 1][k2];
-		}
-		free(myenv[k]);
-		myenv[k] = NULL;
-		*e = *e - 1;
-		free(myenv[k + 1]);
-	}
-	else
-		_put_err(p, loop, 1, v);
+	s[j] = NULL;
+	return (s);
 }
