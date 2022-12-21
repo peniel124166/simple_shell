@@ -1,64 +1,74 @@
-include "sshell.h"
+#include "shell.h"
 
 /**
- * _errorcd - writes the error
- * @p: input pointer
- * Return: nothing.
+ **_strncpy - copies a string
+ *@dest: the destination string to be copied to
+ *@src: the source string
+ *@n: the amount of characters to be copied
+ *Return: the concatenated string
  */
-void _errorcd(char **p)
+char *_strncpy(char *dest, char *src, int n)
 {
-	write(STDERR_FILENO, p[0], 2);
-	write(STDERR_FILENO, ": can't cd to ", 14);
-	write(STDERR_FILENO, p[1], _strlen(p[1]));
-	write(STDERR_FILENO, "\n", 1);
+	int i, j;
+	char *s = dest;
+
+	i = 0;
+	while (src[i] != '\0' && i < n - 1)
+	{
+		dest[i] = src[i];
+		i++;
+	}
+	if (i < n)
+	{
+		j = i;
+		while (j < n)
+		{
+			dest[j] = '\0';
+			j++;
+		}
+	}
+	return (s);
 }
+
 /**
- * _errorexit - writes the error
- * @p: input pointer
- * Return: nothing.
+ **_strncat - concatenates two strings
+ *@dest: the first string
+ *@src: the second string
+ *@n: the amount of bytes to be maximally used
+ *Return: the concatenated string
  */
-void _errorexit(char **p)
+char *_strncat(char *dest, char *src, int n)
 {
-	write(STDERR_FILENO, p[0], 4);
-	write(STDERR_FILENO, ": Illegal number: ", 18);
-	write(STDERR_FILENO, p[1], _strlen(p[1]));
-	write(STDERR_FILENO, "\n", 1);
+	int i, j;
+	char *s = dest;
+
+	i = 0;
+	j = 0;
+	while (dest[i] != '\0')
+		i++;
+	while (src[j] != '\0' && j < n)
+	{
+		dest[i] = src[j];
+		i++;
+		j++;
+	}
+	if (j < n)
+		dest[i] = '\0';
+	return (s);
 }
+
 /**
- * _errorhelp - writes the error
- * @p: input pointer
- * Return: nothing.
+ **_strchr - locates a character in a string
+ *@s: the string to be parsed
+ *@c: the character to look for
+ *Return: (s) a pointer to the memory area s
  */
-void _errorhelp(char **p)
+char *_strchr(char *s, char c)
 {
-	write(STDERR_FILENO, p[0], 4);
-	write(STDERR_FILENO, ": no help topics match '", 24);
-	write(STDERR_FILENO, p[1], _strlen(p[1]));
-	write(STDERR_FILENO, "'. Try 'help help' or 'man -k '", 31);
-	write(STDERR_FILENO, p[1], _strlen(p[1]));
-	write(STDERR_FILENO, "' or info '", 11);
-	write(STDERR_FILENO, p[1], _strlen(p[1]));
-	write(STDERR_FILENO, "'\n", 2);
-}
-/**
- * _errorgarbage - writes the error
- * @p: input pointer
- * Return: nothing.
- */
-void _errorgarbage(char **p)
-{
-	write(STDERR_FILENO, p[0], _strlen(p[0]));
-	write(STDERR_FILENO, ": not found\n", 13);
-}
-/**
- * _errorenv - writes the error
- * @p: input pointer
- * Return: nothing.
- */
-void _errorenv(char **p)
-{
-	write(STDERR_FILENO, p[0], _strlen(p[0]));
-	write(STDERR_FILENO, ": unable to add/rm variable ", 28);
-	write(STDERR_FILENO, p[1], _strlen(p[1]));
-	write(STDERR_FILENO, "\n", 1);
+	do {
+		if (*s == c)
+			return (s);
+	} while (*s++ != '\0');
+
+	return (NULL);
 }
