@@ -1,93 +1,154 @@
-#include "sshell.h"
+#include "shell.h"
 
 /**
- * _put_err - writes the error
- * @p: input pointer
- * @loop: counter of loops
- * @sig: signal
- * @v: arguments in input
- * Return: Nothing.
+ * is_chain - test if current char in buffer is a chain delimeter
+ * @info: the parameter struct
+ * @buf: the char buffer
+ * @p: address of current position in buf
+ *
+ * Return: 1 if chain delimeter, 0 otherwise
  */
-void _put_err(char **p, int loop, int sig, char *v[])
+int is_chain(info_t *info, char *buf, size_t *p)
 {
-	static int pr = 1;
+	size_t j = *p;
 
-	if (sig == 0)
-		pr = 0;
-	pr++;
-	if (sig == 3)
-		pr = 3;
-	if (pr == 2 || (pr == 3 && sig == 3))
+	if (buf[j] == '|' && buf[j + 1] == '|')
 	{
-		write(STDERR_FILENO, v[0], _strlen(v[0]));
-		write(STDERR_FILENO, ": ", 2);
-		print_number(loop);
-		write(STDERR_FILENO, ": ", 2);
+		buf[j] = 0;
+		j++;
+		info->cmd_buf_type = CMD_OR;
 	}
-	if (pr == 2)
+	else if (buf[j] == '&' && buf[j + 1] == '&')
 	{
-		_builtinerr(p);
-		_builtinerr2(p);
+		buf[j] = 0;
+		j++;
+		info->cmd_buf_type = CMD_AND;
 	}
-	else if (pr == 3 && sig == 3)
+	else if (buf[j] == ';') /* found end of this command */
 	{
-		_errorgarbage(p);
-		pr = 1;
+		buf[j] = 0; /* replace semicolon with null */
+		info->cmd_buf_type = CMD_CHAIN;
 	}
+	else
+		return (0);
+	*p = j;
+	return (1);
 }
 
 /**
- * _builtinerr - writes the error
- * @p: input pointer
- * Return: nothing.
+ * check_chain - checks we should continue chaining based on last status
+ * @info: the parameter struct
+ * @buf: the char buffer
+ * @p: address of current position in buf
+ * @i: starting position in buf
+ * @len: length of buf
+ *
+ * Return: Void
  */
-void _builtinerr(char **p)
+void check_chain(info_t *info, char *buf, size_t *p, size_t i, size_t len)
 {
-	char str1[3] = "cd", str2[5] = "exit", str3[5] = "help";
-	int i = 0, j = 0, cont = 0, cont2 = 0;
+	size_t j = *p;
 
-	while (p[0][j] != '\0')
-		j++;
-	if (j == 2)
+	if (info->cmd_buf_type == CMD_AND)
 	{
-		for (; i < 2; i++)
-			if (p[0][i] == str1[i])
-				cont++;
-		if (cont == 2)
-			_errorcd(p);
+		if (info->status)
+		{
+			buf[i] = 0;
+			j = len;
+		}
 	}
-	if (j == 4)
+	if (info->cmd_buf_type == CMD_OR)
 	{
-		for (i = 0; i < 4; i++)
-			if (p[0][i] == str2[i])
-				cont++;
-		if (cont == 4)
-			_errorexit(p);
-		for (i = 0; i < 4; i++)
-			if (p[0][i] == str3[i])
-				cont2++;
-		if (cont2 == 4)
-			_errorhelp(p);
+		if (!info->status)
+		{
+			buf[i] = 0;
+			j = len;
+		}
 	}
+
+	*p = j;
 }
-/**
- * _builtinerr2 - writes the error
- * @p: input pointer
- * Return: nothing.
- */
-void _builtinerr2(char **p)
-{
-	char str1[9] = "unsetenv";
-	int i = 0, j = 0, cont = 0;
 
-	while (p[0][j] != '\0')
-		j++;
-	if (j == 8)
+/**
+ * replace_alias - replaces an aliases in the tokenized string
+ * @info: the parameter struct
+ *
+ * Return: 1 if replaced, 0 otherwise
+ */
+int replace_alias(info_t *info)
+{
+	int i;
+	list_t *node;
+	char *p;
+
+	for (i = 0; i < 10; i++)
 	{
-		for (; i < 8; i++)
-			if (p[0][i] == str1[i])
-				cont++;
-		if (cont == 8)
-			_errorenv(p);
+		node = node_starts_with(info->alias, info->argv[0], '=');
+		if (!node)
+			return (0);
+		free(info->argv[0]);
+		p = _strchr(node->str, '=');
+		if (!p)
+			return (0);
+		p = _strdup(p + 1);
+		if (!p)
+			return (0);
+		info->argv[0] = p;
 	}
+	return (1);
+}
+
+/**
+ * replace_vars - replaces vars in the tokenized string
+ * @info: the parameter struct
+ *
+ * Return: 1 if replaced, 0 otherwise
+ */
+int replace_vars(info_t *info)
+{
+	int i = 0;
+	list_t *node;
+
+	for (i = 0; info->argv[i]; i++)
+	{
+		if (info->argv[i][0] != '$' || !info->argv[i][1])
+			continue;
+
+		if (!_strcmp(info->argv[i], "$?"))
+		{
+			replace_string(&(info->argv[i]),
+				_strdup(convert_number(info->status, 10, 0)));
+			continue;
+		}
+		if (!_strcmp(info->argv[i], "$$"))
+		{
+			replace_string(&(info->argv[i]),
+				_strdup(convert_number(getpid(), 10, 0)));
+			continue;
+		}
+		node = node_starts_with(info->env, &info->argv[i][1], '=');
+		if (node)
+		{
+			replace_string(&(info->argv[i]),
+				_strdup(_strchr(node->str, '=') + 1));
+			continue;
+		}
+		replace_string(&info->argv[i], _strdup(""));
+
+	}
+	return (0);
+}
+
+/**
+ * replace_string - replaces string
+ * @old: address of old string
+ * @new: new string
+ *
+ * Return: 1 if replaced, 0 otherwise
+ */
+int replace_string(char **old, char *new)
+{
+	free(*old);
+	*old = new;
+	return (1);
 }
