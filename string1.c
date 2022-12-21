@@ -1,94 +1,87 @@
-#include "sshell.h"
+#include "shell.h"
+
 /**
- * _sch - search if a char is inside a string
- * @s: string to review
- * @c: char to find
- * Return: 1 if success 0 if not
+ * _strcpy - copies a string
+ * @dest: the destination
+ * @src: the source
+ *
+ * Return: pointer to destination
  */
-int _sch(char *s, char c)
+char *_strcpy(char *dest, char *src)
 {
-	int cont = 0;
+	int i = 0;
 
-	while (s[cont] != '\0')
+	if (dest == src || src == 0)
+		return (dest);
+	while (src[i])
 	{
-		if (s[cont] == c)
-		{
-			break;
-		}
-		cont++;
+		dest[i] = src[i];
+		i++;
 	}
-	if (s[cont] == c)
-		return (1);
-	else
-		return (0);
+	dest[i] = 0;
+	return (dest);
 }
+
 /**
- * _strtok - function that cut a string into tokens depending of the delimit
- * @s: string to cut in parts
- * @d: delimiters
- * Return: first partition
+ * _strdup - duplicates a string
+ * @str: the string to duplicate
+ *
+ * Return: pointer to the duplicated string
  */
-char *_strtok(char *s, char *d)
+char *_strdup(const char *str)
 {
-	static char *ultimo;
-	int i = 0, j = 0;
+	int length = 0;
+	char *ret;
 
-	if (!s)
-		s = ultimo;
-	while (s[i] != '\0')
-	{
-		if (_sch(d, s[i]) == 0 && s[i + 1] == '\0')
-			i++;
-		else if (_sch(d, s[i]) == 0 && _sch(d, s[i + 1]) == 0)
-			i++;
-		else if (_sch(d, s[i]) == 0 && _sch(d, s[i + 1]) == 1)
-		{
-			ultimo = s + i + 1;
-			*ultimo = '\0';
-			ultimo++;
-			s = s + j;
-			return (s);
-		}
-		else if (_sch(d, s[i]) == 1)
-		{
-			j++;
-			i++;
-		}
-	}
-	return (NULL);
+	if (str == NULL)
+		return (NULL);
+	while (*str++)
+		length++;
+	ret = malloc(sizeof(char) * (length + 1));
+	if (!ret)
+		return (NULL);
+	for (length++; length--;)
+		ret[length] = *--str;
+	return (ret);
 }
-/**
-* _strtok2 - function tokenizaition with ;
-* @s: string to cut in parts
-* @d: delimiters
-* Return: first partition
-*/
-char *_strtok2(char *s, char *d)
-{
-	static char *ultimo;
-	int i = 0, j = 0;
 
-	if (!s)
-		s = ultimo;
-	while (s[i] != '\0')
+/**
+ *_puts - prints an input string
+ *@str: the string to be printed
+ *
+ * Return: Nothing
+ */
+void _puts(char *str)
+{
+	int i = 0;
+
+	if (!str)
+		return;
+	while (str[i] != '\0')
 	{
-		if (_sch(d, s[i]) == 0 && s[i + 1] == '\0')
-			i++;
-		else if (_sch(d, s[i]) == 0 && _sch(d, s[i + 1]) == 0)
-			i++;
-		else if (_sch(d, s[i]) == 0 && _sch(d, s[i + 1]) == 1)
-		{
-			ultimo = s + i + 1;
-			*ultimo = '\0';
-			ultimo++;
-			s = s + j;
-			return (s);
-		}
-		else if (_sch(d, s[i]) == 1)
-		{
-			j++;
-			i++;
-		}
+		_putchar(str[i]);
+		i++;
 	}
-	return (NULL);
+}
+
+/**
+ * _putchar - writes the character c to stdout
+ * @c: The character to print
+ *
+ * Return: On success 1.
+ * On error, -1 is returned, and errno is set appropriately.
+ */
+int _putchar(char c)
+{
+	static int i;
+	static char buf[WRITE_BUF_SIZE];
+
+	if (c == BUF_FLUSH || i >= WRITE_BUF_SIZE)
+	{
+		write(1, buf, i);
+		i = 0;
+	}
+	if (c != BUF_FLUSH)
+		buf[i++] = c;
+	return (1);
 }
