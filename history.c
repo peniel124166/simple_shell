@@ -1,129 +1,143 @@
-#include "sshell.h"
-/**
- * salida2 - out with double Ctrl+D
- *@m: copy of environmental variables
- *@e: number of elements in m
- *@line: input of user
- */
-void salida2(char **m, int e, char *line)
-{
-	free(line);
-	gridfree(m, e);
-	write(STDIN_FILENO, "#cisfun$ ", 9);
-	write(STDIN_FILENO, "\n", 1);
-	exit(0);
-}
-/**
- * salida1 - normal out
- * @m: copy of environmental variables
- * @e: number of elements in m
- * @line: input of user
- */
-void salida1(char **m, int e, char *line)
-{
-	(void)line;
+#include "shell.h"
 
-	gridfree(m, e);
-	write(STDIN_FILENO, "\n", 1);
-	exit(0);
-}
 /**
- * _getline - function to read what the user writes
- * @a: pointer to loop counter
- * @e: length of m
- * @m: copy of environmental
- * Return: line in sucess otherwise NULL.
+ * get_history_file - gets the history file
+ * @info: parameter struct
+ *
+ * Return: allocated string containg history file
  */
-char *_getline(int *a, char **m, int e)
-{
-	char letter[1] = {0}, *line = NULL;
-	size_t bufsize = 0;
-	static int num = 1;
 
-	if (num == 2)
-		salida2(m, e, line);
-	for (; (num != 0); bufsize = 0, free(line))
+char *get_history_file(info_t *info)
+{
+	char *buf, *dir;
+
+	dir = _getenv(info, "HOME=");
+	if (!dir)
+		return (NULL);
+	buf = malloc(sizeof(char) * (_strlen(dir) + _strlen(HIST_FILE) + 2));
+	if (!buf)
+		return (NULL);
+	buf[0] = 0;
+	_strcpy(buf, dir);
+	_strcat(buf, "/");
+	_strcat(buf, HIST_FILE);
+	return (buf);
+}
+
+/**
+ * write_history - creates a file, or appends to an existing file
+ * @info: the parameter struct
+ *
+ * Return: 1 on success, else -1
+ */
+int write_history(info_t *info)
+{
+	ssize_t fd;
+	char *filename = get_history_file(info);
+	list_t *node = NULL;
+
+	if (!filename)
+		return (-1);
+
+	fd = open(filename, O_CREAT | O_TRUNC | O_RDWR, 0644);
+	free(filename);
+	if (fd == -1)
+		return (-1);
+	for (node = info->history; node; node = node->next)
 	{
-		write(STDIN_FILENO, "#cisfun$ ", 9);
-		*a = *a + 1;
-		signal(SIGINT, _signal);
-		for (; ((num = read(STDIN_FILENO, letter, 1)) > 0); bufsize++)
-		{
-			if (bufsize == 0)
-				line = _calloc(bufsize + 3, sizeof(char));
-			else
-				line = _realloc(line, bufsize, bufsize + 3);
-			if (!line)
-			{
-				num = 0;
-				break;
-			}
-			line[bufsize] = letter[0], line[bufsize + 1] = '\n';
-			line[bufsize + 2] = '\0';
-			if (line[bufsize] == '\n')
-				break;
-		}
-		if (num == 0 && bufsize == 0)
-			break;
-		else if (num == 0 && bufsize != 0)
-		{
-			num = 2;
-			break;
-		}
-		else if (line[0] != '\n')
-			return (line);
+		_putsfd(node->str, fd);
+		_putfd('\n', fd);
 	}
-	if (num == 0)
-		salida1(m, e, line);
-	return (line);
+	_putfd(BUF_FLUSH, fd);
+	close(fd);
+	return (1);
 }
-/**
- * _getlineav - function to read what the user writes
- * @a: pointer to loop counter
- * @e: length of m
- * @m: copy of environmental
- * Return: line in sucess otherwise NULL.
- */
-char *_getlineav(int *a, char **m, int e)
-{
-	char letter[1] = {0}, *line = NULL;
-	size_t bufsize = 0;
-	static int num = 1;
 
-	if (num == 2)
-		salida2(m, e, line);
-	for (; (num != 0); bufsize = 0, free(line))
+/**
+ * read_history - reads history from file
+ * @info: the parameter struct
+ *
+ * Return: histcount on success, 0 otherwise
+ */
+int read_history(info_t *info)
+{
+	int i, last = 0, linecount = 0;
+	ssize_t fd, rdlen, fsize = 0;
+	struct stat st;
+	char *buf = NULL, *filename = get_history_file(info);
+
+	if (!filename)
+		return (0);
+
+	fd = open(filename, O_RDONLY);
+	free(filename);
+	if (fd == -1)
+		return (0);
+	if (!fstat(fd, &st))
+		fsize = st.st_size;
+	if (fsize < 2)
+		return (0);
+	buf = malloc(sizeof(char) * (fsize + 1));
+	if (!buf)
+		return (0);
+	rdlen = read(fd, buf, fsize);
+	buf[fsize] = 0;
+	if (rdlen <= 0)
+		return (free(buf), 0);
+	close(fd);
+	for (i = 0; i < fsize; i++)
+		if (buf[i] == '\n')
+		{
+			buf[i] = 0;
+			build_history_list(info, buf + last, linecount++);
+			last = i + 1;
+		}
+	if (last != i)
+		build_history_list(info, buf + last, linecount++);
+	free(buf);
+	info->histcount = linecount;
+	while (info->histcount-- >= HIST_MAX)
+		delete_node_at_index(&(info->history), 0);
+	renumber_history(info);
+	return (info->histcount);
+}
+
+/**
+ * build_history_list - adds entry to a history linked list
+ * @info: Structure containing potential arguments. Used to maintain
+ * @buf: buffer
+ * @linecount: the history linecount, histcount
+ *
+ * Return: Always 0
+ */
+int build_history_list(info_t *info, char *buf, int linecount)
+{
+	list_t *node = NULL;
+
+	if (info->history)
+		node = info->history;
+	add_node_end(&node, buf, linecount);
+
+	if (!info->history)
+		info->history = node;
+	return (0);
+}
+
+/**
+ * renumber_history - renumbers the history linked list after changes
+ * @info: Structure containing potential arguments. Used to maintain
+ *
+ * Return: the new histcount
+ */
+int renumber_history(info_t *info)
+{
+	list_t *node = info->history;
+	int i = 0;
+
+	while (node)
 	{
-		*a = *a + 1;
-		signal(SIGINT, _signal);
-		while ((num = read(STDIN_FILENO, letter, 1)) > 0)
-		{
-			if (bufsize == 0)
-				line = _calloc(bufsize + 3, sizeof(char));
-			else
-				line = _realloc(line, bufsize, bufsize + 3);
-			if (!line)
-			{
-				num = 0;
-				break;
-			}
-			line[bufsize] = letter[0], line[bufsize + 1] = '\n';
-			line[bufsize + 2] = '\0';
-			if (line[bufsize] == '\n')
-				break;
-			bufsize++;
-		}
-		if (num == 0 && bufsize == 0)
-			break;
-		else if (num == 0 && bufsize != 0)
-		{
-			num = 2;
-			break;
-		}
-		else if (line[0] != '\n')
-			return (line);
+		node->num = i++;
+		node = node->next;
 	}
-	if (num == 0)
-		salida1(m, e, line);
-	return (line);
+	return (info->histcount = i);
 }
