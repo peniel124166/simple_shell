@@ -1,34 +1,74 @@
-#include "sshell.h"
+#include "shell.h"
 
 /**
- * _gethome - funtion to get env HOME
- * @m: copy of environment variables
- *Return: string inside the HOME env variable
+ * clear_info - initializes info_t struct
+ * @info: struct address
  */
-char *_gethome(char **m)
+void clear_info(info_t *info)
 {
-	int i, j, k, cont = 0;
-	char str[] = "HOME=";
-	char *home;
+	info->arg = NULL;
+	info->argv = NULL;
+	info->path = NULL;
+	info->argc = 0;
+}
 
-	for (i = 0; m[i] != NULL; i++)
+/**
+ * set_info - initializes info_t struct
+ * @info: struct address
+ * @av: argument vector
+ */
+void set_info(info_t *info, char **av)
+{
+	int i = 0;
+
+	info->fname = av[0];
+	if (info->arg)
 	{
-		for (j = 0; m[i][j] != '\0'; j++)
+		info->argv = strtow(info->arg, " \t");
+		if (!info->argv)
 		{
-			if (cont == 5)
-				break;
-			if (m[i][j] == str[j])
-				cont++;
-			else
-				break;
+
+			info->argv = malloc(sizeof(char *) * 2);
+			if (info->argv)
+			{
+				info->argv[0] = _strdup(info->arg);
+				info->argv[1] = NULL;
+			}
 		}
-		if (cont == 5)
-			break;
+		for (i = 0; info->argv && info->argv[i]; i++)
+			;
+		info->argc = i;
+
+		replace_alias(info);
+		replace_vars(info);
 	}
-	home = m[i];
-	for (k = 0; k < 5; k++)
+}
+
+/**
+ * free_info - frees info_t struct fields
+ * @info: struct address
+ * @all: true if freeing all fields
+ */
+void free_info(info_t *info, int all)
+{
+	ffree(info->argv);
+	info->argv = NULL;
+	info->path = NULL;
+	if (all)
 	{
-		home++;
+		if (!info->cmd_buf)
+			free(info->arg);
+		if (info->env)
+			free_list(&(info->env));
+		if (info->history)
+			free_list(&(info->history));
+		if (info->alias)
+			free_list(&(info->alias));
+		ffree(info->environ);
+			info->environ = NULL;
+		bfree((void **)info->cmd_buf);
+		if (info->readfd > 2)
+			close(info->readfd);
+		_putchar(BUF_FLUSH);
 	}
-	return (home);
 }
