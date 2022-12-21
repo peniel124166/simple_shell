@@ -1,73 +1,54 @@
 #include "sshell.h"
-/**
- * Counter - counts the number of lim found in the input
- * @C: the input string;
- * @lim: character to find inside the C string
- * Return: number of characters found
- */
-int Counter(char *C, char *lim)
-{
-	int i = 0, num = 0;
 
-	if (lim != NULL)
-	{
-		while (C && C[i] != '\0')
-		{
-			if (C[i] != lim[0])
-			{
-				if (C[i + 1] == lim[0] || C[i + 1] == '\0')
-					num++;
-			}
-			i++;
-		}
-	}
-	return (num);
-}
 /**
- * parsing - create an array of pointers depending of the delimit characters
- * @line: input of the user
- * Return: an array of pointers of n size
+ * _realloc2 - change the size and copy the content
+ * @a: string to add
+ * @p: malloc pointer to reallocate
+ * @old: old number of bytes
+ * @new_size: new number of Bytes
+ * Return: nothing
  */
-char **parsing(char *line)
-{
-	char *token = NULL, **p = NULL;
-	int length = 0, j = 0, i = 0, buffsize = 0;
 
-	if (line == NULL)
-		return (NULL);
-	buffsize = Counter(line, " ");
-	p = _calloc((buffsize + 1), sizeof(char *));
-	if (!p)
+void *_realloc2(char *a, char *p, unsigned int old, unsigned int new_size)
+{
+	char *pa = NULL;
+	unsigned int i, j = 0;
+
+	if (new_size == old)
+		return (p);
+	if (p == NULL || a == NULL)
 	{
-		perror("No memory");
-		return (NULL);
+		pa = _calloc(new_size + 1, sizeof(char));
+		if (!pa)
+			return (NULL);
+		return (pa);
 	}
-	/*store the token partition inside **p */
-	token = _strtok(line, " \t\n");
-	if (!token)
+	while (a[j] != '\0')
+		j++;
+	if (new_size == 0 && p != NULL)
 	{
 		free(p);
 		return (NULL);
 	}
-	while (token)
+	if (new_size > old)
 	{
-		while (token[length] != '\0')
-			length++;
-		p[j] = _calloc((length + 1), sizeof(char));
-		if (p[j] == NULL)
-		{
-			gridfree(p, j);
-			perror("No memory");
+		pa = _calloc(new_size + 1, sizeof(char));
+		if (!pa)
 			return (NULL);
-		}
-		/*fill the pointer with the content of token*/
-		for (i = 0; i < length; i++)
-			p[j][i] = token[i];
-		length = 0;
-		j++;
-		/*get the next element*/
-		token = _strtok(NULL, " \t\n");
+		for (i = 0; i < j; i++)
+			pa[i] = a[i];
+		for (; i <= new_size; i++)
+			pa[i] = *((char *)p + (i - j));
+		free(p);
 	}
-	p[j] = NULL;
-	return (p);
+	else
+	{
+		pa = _calloc(new_size, sizeof(char));
+		if (!pa)
+			return (NULL);
+		for (i = 0; i < new_size; i++)
+			pa[i] = *((char *)p + i);
+		free(p);
+	}
+	return (pa);
 }
