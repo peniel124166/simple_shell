@@ -1,77 +1,160 @@
-#ifndef SSHELL_H
-#define SSHELL_H
+#include "shell.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <signal.h>
+/**
+ * hsh - main shell loop
+ * @info: the parameter & return info struct
+ * @av: the argument vector from main()
+ *
+ * Return: 0 on success, 1 on error, or error code
+ */
+int hsh(info_t *info, char **av)
+{
+	ssize_t r = 0;
+	int builtin_ret = 0;
 
-/*global variables*/
-extern char **environ;
-char **create_env(char *envp[]);
-void _updateoldpwd(char *buf, char **myenv);
-void _updatepwd(char *buf, char **myenv);
+	while (r != -1 && builtin_ret != -2)
+	{
+		clear_info(info);
+		if (interactive(info))
+			_puts("$ ");
+		_eputchar(BUF_FLUSH);
+		r = get_input(info);
+		if (r != -1)
+		{
+			set_info(info, av);
+			builtin_ret = find_builtin(info);
+			if (builtin_ret == -1)
+				find_cmd(info);
+		}
+		else if (interactive(info))
+			_putchar('\n');
+		free_info(info, 0);
+	}
+	write_history(info);
+	free_info(info, 1);
+	if (!interactive(info) && info->status)
+		exit(info->status);
+	if (builtin_ret == -2)
+	{
+		if (info->err_num == -1)
+			exit(info->status);
+		exit(info->err_num);
+	}
+	return (builtin_ret);
+}
 
-/* shell functions*/
-void _argv_plus(char *argv[], char *envp[]);
-void _argv_nil(char *argv[], char *envp[]);
-int revision(char **p, int loop, char *li, int i, char *av[], char **m, int *e);
-void functions(char *line, int loop, char *argv[], char **m, int *e, char *f);
-char *_getline(int *a, char **m, int e);
-char **parsing(char *line);
-void *_realloc(char *ptr, unsigned int old_size, unsigned int new_size);
-void *_realloc2(char *a, char *p, unsigned int old, unsigned int new_size);
-char *str_concat(char *s1, char *s2);
-int _strlen(char *s);
-char *_getlineav(int *a, char **m, int e);
-char **parsing(char *line);
-char *_comments(char *line);
-int semicolon(char *line, int loop, char **argv);
+/**
+ * find_builtin - finds a builtin command
+ * @info: the parameter & return info struct
+ *
+ * Return: -1 if builtin not found,
+ *			0 if builtin executed successfully,
+ *			1 if builtin found but not successful,
+ *			-2 if builtin signals exit()
+ */
+int find_builtin(info_t *info)
+{
+	int i, built_in_ret = -1;
+	builtin_table builtintbl[] = {
+		{"exit", _myexit},
+		{"env", _myenv},
+		{"help", _myhelp},
+		{"history", _myhistory},
+		{"setenv", _mysetenv},
+		{"unsetenv", _myunsetenv},
+		{"cd", _mycd},
+		{"alias", _myalias},
+		{NULL, NULL}
+	};
 
-/* getline functions*/
-void gridfree(char **grid, int height);
-void _fork(char **p, char *l, int a, int L, char **v, int e, char **m, char *f);
-void *_calloc(unsigned int nume, unsigned int size);
-char *_strtok(char *s, char *d);
-char *_strtok2(char *s, char *d);
-int _cd(char **p, int loop, char *v[], char **myenv);
-void _iscd(char **a, int loop, char *v[], char **myenv);
-char *_gethome(char **m);
-int _ex(char **p, int loop, char *li, int x, char *v[], char **m, int e);
-void _signal(int s);
-int _atoi(char *s);
-char **checkbin(char **b, char **m);
+	for (i = 0; builtintbl[i].type; i++)
+		if (_strcmp(info->argv[0], builtintbl[i].type) == 0)
+		{
+			info->line_count++;
+			built_in_ret = builtintbl[i].func(info);
+			break;
+		}
+	return (built_in_ret);
+}
 
-#define SIZE 1024
+/**
+ * find_cmd - finds a command in PATH
+ * @info: the parameter & return info struct
+ *
+ * Return: void
+ */
+void find_cmd(info_t *info)
+{
+	char *path = NULL;
+	int i, k;
 
-void _put_err(char **p, int loop, int sig, char *v[]);
-void _builtinerr(char **p);
-void _builtinerr2(char **p);
-void _errorcd(char **p);
-void _errorexit(char **p);
-void _errorhelp(char **p);
-void _errorgarbage(char **p);
-void print_number(int n);
+	info->path = info->argv[0];
+	if (info->linecount_flag == 1)
+	{
+		info->line_count++;
+		info->linecount_flag = 0;
+	}
+	for (i = 0, k = 0; info->arg[i]; i++)
+		if (!is_delim(info->arg[i], " \t\n"))
+			k++;
+	if (!k)
+		return;
 
-int _ishelp(char **p, int loop, char *v[], char **m);
-void _help_builtin(char **p, int loop, char *v[], char **m);
-void _help(char **p, int loop, char *v[], char **m);
-ssize_t read_help(char **m);
-ssize_t read_cdhelp(char **m);
-ssize_t read_exithelp(char **m);
-ssize_t read_helphelp(char **m);
+	path = find_path(info, _getenv(info, "PATH="), info->argv[0]);
+	if (path)
+	{
+		info->path = path;
+		fork_cmd(info);
+	}
+	else
+	{
+		if ((interactive(info) || _getenv(info, "PATH=")
+			|| info->argv[0][0] == '/') && is_cmd(info, info->argv[0]))
+			fork_cmd(info);
+		else if (*(info->arg) != '\n')
+		{
+			info->status = 127;
+			print_error(info, "not found\n");
+		}
+	}
+}
 
-/* unsetenv*/
-int _env(char **p, char **myenv);
-void _isenv(char **myenv);
-int _isunsetenv(char **p, char **myenv, int *e, int loop, char *v[]);
-void _unsetenv(char **p, char **myenv, int *e, int loop, char *v[]);
-void _errorenv(char **p);
+/**
+ * fork_cmd - forks a an exec thread to run cmd
+ * @info: the parameter & return info struct
+ *
+ * Return: void
+ */
+void fork_cmd(info_t *info)
+{
+	pid_t child_pid;
 
-#endif
+	child_pid = fork();
+	if (child_pid == -1)
+	{
+		/* TODO: PUT ERROR FUNCTION */
+		perror("Error:");
+		return;
+	}
+	if (child_pid == 0)
+	{
+		if (execve(info->path, info->argv, get_environ(info)) == -1)
+		{
+			free_info(info, 1);
+			if (errno == EACCES)
+				exit(126);
+			exit(1);
+		}
+		/* TODO: PUT ERROR FUNCTION */
+	}
+	else
+	{
+		wait(&(info->status));
+		if (WIFEXITED(info->status))
+		{
+			info->status = WEXITSTATUS(info->status);
+			if (info->status == 126)
+				print_error(info, "Permission denied\n");
+		}
+	}
+}
