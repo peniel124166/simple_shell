@@ -1,49 +1,62 @@
-#include "sshell.h"
+#include "shell.h"
 
 /**
- * _realloc - change the size and copy the content
- * @ptr: malloc pointer to reallocate
- * @old_size: old number of bytes
- * @new_size: new number of Bytes
- * Return: nothing
+ **_memset - fills memory with a constant byte
+ *@s: the pointer to the memory area
+ *@b: the byte to fill *s with
+ *@n: the amount of bytes to be filled
+ *Return: (s) a pointer to the memory area s
  */
-
-void *_realloc(char *ptr, unsigned int old_size, unsigned int new_size)
+char *_memset(char *s, char b, unsigned int n)
 {
-	char *p = NULL;
 	unsigned int i;
 
+	for (i = 0; i < n; i++)
+		s[i] = b;
+	return (s);
+}
+
+/**
+ * ffree - frees a string of strings
+ * @pp: string of strings
+ */
+void ffree(char **pp)
+{
+	char **a = pp;
+
+	if (!pp)
+		return;
+	while (*pp)
+		free(*pp++);
+	free(a);
+}
+
+/**
+ * _realloc - reallocates a block of memory
+ * @ptr: pointer to previous malloc'ated block
+ * @old_size: byte size of previous block
+ * @new_size: byte size of new block
+ *
+ * Return: pointer to da ol'block nameen.
+ */
+void *_realloc(void *ptr, unsigned int old_size, unsigned int new_size)
+{
+	char *p;
+
+	if (!ptr)
+		return (malloc(new_size));
+	if (!new_size)
+		return (free(ptr), NULL);
 	if (new_size == old_size)
 		return (ptr);
-	if (ptr == NULL)
-	{
-		p = _calloc(new_size + 1, sizeof(char));
-		if (!p)
-			return (NULL);
-		return (p);
-	}
-	if (new_size == 0 && ptr != NULL)
-	{
-		free(ptr);
+
+	p = malloc(new_size);
+	if (!p)
 		return (NULL);
-	}
-	if (new_size > old_size)
-	{
-		p = _calloc(new_size + 1, sizeof(char));
-		if (!p)
-			return (NULL);
-		for (i = 0; i < old_size; i++)
-			p[i] = *((char *)ptr + i);
-		free(ptr);
-	}
-	else
-	{
-		p = _calloc(new_size + 1, sizeof(char));
-		if (!p)
-			return (NULL);
-		for (i = 0; i < new_size; i++)
-			p[i] = *((char *)ptr + i);
-		free(ptr);
-	}
+
+	old_size = old_size < new_size ? old_size : new_size;
+	while (old_size--)
+		p[old_size] = ((char *)ptr)[old_size];
+	free(ptr);
 	return (p);
 }
